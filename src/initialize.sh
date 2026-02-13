@@ -1,0 +1,1 @@
+docker run --name little_brother -it --rm --device /dev/i2c-1:/dev/i2c-1  --network host -v ~/ros2_ws:/ws ros:jazzy-ros-base bash 
