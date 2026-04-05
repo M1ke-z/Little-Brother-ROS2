@@ -10,31 +10,37 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
+find_package(interfaces REQUIRED)
 
-find_package(rosidl_default_generators REQUIRED)
-
-set(msg_files
-  "msg/MovementData.msg"
+add_executable(control_node 
+  src/control_node.cpp
+  src/control_parameters.cpp
 )
 
-rosidl_generate_interfaces(${PROJECT_NAME}
-  ${msg_files}  
+target_include_directories(control_node PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
 )
 
-add_executable(control_node src/control_node.cpp)
-
-ament_target_dependencies(
-  control_node
+ament_target_dependencies(control_node
   rclcpp
   std_msgs
   sensor_msgs
+  interfaces
 )
 
 ament_export_dependencies(rosidl_default_runtime)
 
-install(TARGETS
+install( TARGETS
   control_node
   DESTINATION lib/${PROJECT_NAME}
 )
+
+install(
+  DIRECTORY config
+  DESTINATION share/${PROJECT_NAME}
+)
+
+
 
 ament_package()

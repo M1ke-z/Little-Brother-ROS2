@@ -1,5 +1,4 @@
 #include <rclcpp/rclcpp.hpp>
-#include <sensor_msgs/msg/joint_state.hpp>
 
 #include <fcntl.h>
 #include <unistd.h>
@@ -8,9 +7,12 @@
 
 #include <unordered_map>
 #include <vector>
+#include <span>
 #include <cmath>
 #include <cstdint>
 #include <string>
+
+#include "interfaces/msg/motor_position.hpp"
 
 class PCA9685Driver : public rclcpp::Node {
 public:
@@ -21,40 +23,14 @@ public:
         pwm_hz_ = this->declare_parameter<double>("pwm_hz", 50.0);
         update_hz_ = this->declare_parameter<double>("update_hz", 50.0);
 
-        // This is the max and min pulse width, 
-        min_us_ = this->declare_parameter<double>("min_pulse_us", 544.0);
-        max_us_ = this->declare_parameter<double>("max_pulse_us", 2400.0);
- 
-        // These channels should be passed in as parameters rather than hardcoded. Look into this
-        // FL1 - Front, Left, 1st Motor
-        // 1st Motor - Shoulder Joint
-        // 2nd Motor - Upper Joint
-        // 3rd Motor - Lower Elbow Joint
-
-        servo_map_["servoFL1"] = 0;
-        servo_map_["servoFL2"] = 1;
-        servo_map_["servoFL3"] = 2;
-
-        servo_map_["servoFR1"] = 4;
-        servo_map_["servoFR2"] = 5;
-        servo_map_["servoFR3"] = 6;
-
-        servo_map_["servoBL1"] = 8;
-        servo_map_["servoBL2"] = 9;
-        servo_map_["servoBL3"] = 10;
-
-        servo_map_["servoBR1"] = 12;
-        servo_map_["servoBR2"] = 13;
-        servo_map_["servoBR3"] = 14;
-
         open_i2c();
         init_pca9685();
 
         // This creates a subscription for "servo/command" topic. rclcpp:QoS(10) declares how many messages will be stored in the queue
         // [this](param) {} is a lamba function. Cool. Which gets the SharedPtr for the JointState (SharedPtr is the standard value passed to lambda functions)
-        sub_ = this->create_subscription<sensor_msgs::msg::JointState>(
+        sub_ = this->create_subscription<interfaces::msg::MotorPosition>(
             "servo/command", rclcpp::QoS(10), 
-            [this](sensor_msgs::msg::JointState::SharedPtr msg) {on_command(*msg);});
+            [this](interfaces::msg::MotorPosition::SharedPtr msg) {on_command(*msg);});
 
         timer_ = this->create_wall_timer(
             std::chrono::duration<double>(1.0 / update_hz_),
@@ -85,7 +61,7 @@ public:
         void open_i2c() {
             // Open the linux i2c bus 
             fd_ = open(i2c_dev_.c_str(), O_RDWR);
-            std::cout << i2c_dev_.c_str() << std::endl;
+            RCLCPP_INFO(this->get_logger(), i2c_dev_.c_str());
             // If the integer is < 0 then the i2c bus has already been opened
             if  (fd_ < 0) throw std::runtime_error("Failed to open I2C device"); 
 
@@ -135,16 +111,18 @@ public:
             i2c_write_reg(PRESCALE, prescale);
         }
 
-        void on_command(const sensor_msgs::msg::JointState &msg) {
+        void on_command(const interfaces::msg::MotorPosition &msg) {
             // message contains an array of servo names and the corresponding positions
+            // RCLCPP_INFO(this->get_logger(), "Recieved Message - PCA on_command");
 
             // store latest desired positions (radians)
-            for(size_t i = 0; i < msg.name.size() && i < msg.position.size(); ++i) {
-                target_pos_[msg.name[i]] = msg.position[i];
+            for(size_t i = 0; i < msg.motor.size() && i < msg.pulses.size(); i++) {
+                // RCLCPP_INFO(this->get_logger(), "%.2f, %d, %ld", msg.pulses[i], msg.motor[i], i);
+                target_pos_[msg.motor[i]] = us_to_ticks(msg.pulses[i]);
             }
         }
 
-        void set_channel_ticks(std::array<uint16_t> on, std::array<uint16_t> off) {
+        void set_channel_ticks(std::array<uint16_t, 16> on, std::array<uint16_t, 16> off) {
             // on is the number of ticks after the pulse starts that it will go to high
             // off is the number of ticks after the pulse starts that it will return back to low
             // on is normally 1 for servos
@@ -156,16 +134,16 @@ public:
             //uint8_t reg = LED0_ON_L; //+ 4 * channel;
 
             // Test this to make sure that the write for servos works. Need to account for empty channels (3, 7, 11, 15)
-            std::array<uint8_t, 49> buff = {};
+            std::array<uint8_t, 65> buff = {};
             buff[0] = LED0_ON_L;
 
-            uint8_t num_motors = sizeOf(on) / sizeOf(uint16_t);;
+            uint8_t num_channels = sizeof(on) / sizeof(uint16_t);
 
-            for(uint8_t index = 0; index < num_motors; index ++){
+            for(uint8_t index = 0; index < num_channels; index ++){
                 buff[index * 4 + 1] = static_cast<uint8_t>(on[index] & 0xFF);
-                buff[index * 4 + 2] = static_cast<uint8_t>((on[index] >> 8) & 0xFF),
-                buff[index * 4 + 3] = static_cast<uint8_t>(off[index] & 0xFF),
-                buff[index * 4 + 4] = static_cast<uint8_t>((off[index] >> 8) & 0xFF)
+                buff[index * 4 + 2] = static_cast<uint8_t>((on[index] >> 8) & 0xFF);
+                buff[index * 4 + 3] = static_cast<uint8_t>(off[index] & 0xFF);
+                buff[index * 4 + 4] = static_cast<uint8_t>((off[index] >> 8) & 0xFF);
             }
 
             // uint8_t buff[5] = {
@@ -175,16 +153,18 @@ public:
             //     static_cast<uint8_t>(off & 0xFF),
             //     static_cast<uint8_t>((off >> 8) & 0xFF)
             // };
-            if (write(fd_, buff, 49) != 5) throw std::runtime_error("I2C channel write failed");
+            if (write(fd_, &buff, 65) != 65) throw std::runtime_error("I2C channel write failed");
         }
 
-        double rad_to_us(double rad) const {
-            // Example: map [-pi/2, pi/2] to [min_us_, max_us_]
+        void write_outputs() {
+            std::array<uint16_t, 16> off_ticks = {};
+            std::array<uint16_t, 16> on_ticks = {};
 
-            double t = (rad + M_PI_2) / (M_PI);
-            if(t < 0.0) t = 0.0;
-            if(t > 1.0) t = 1.0;
-            return min_us_ + t * (max_us_ - min_us_);
+            for (const auto& [servo_num, servo_ticks] : target_pos_) {
+                off_ticks[servo_num] = servo_ticks;
+            }
+
+            set_channel_ticks(on_ticks, off_ticks); // Removed ch (channel) from set_channel_ticks
         }
 
         uint16_t us_to_ticks(double pulse_us) const {
@@ -193,24 +173,6 @@ public:
             if(ticks < 0.0) ticks = 0.0;
             if(ticks > 4095.0) ticks = 4095.0;
             return static_cast<uint16_t>(std::lround(ticks));
-        }
-
-        void write_outputs() {
-            std::array<uint16_t, 12> off_ticks = {}
-            std::array<uint16_t, 12> on_ticks = {0};
-
-            // Index was added in. This might break
-            for (const auto& [index, name, ch] : servo_map_) {
-                auto it = target_pos_.find(name);
-                if(it == target_pos_.end()) continue;
-                
-                double pulse_us = rad_to_us(it->second);
-                uint16_t off = us_to_ticks(pulse_us);   
-
-                off_ticks[index] = off;
-            }
-            
-            set_channel_ticks(ch, on_ticks, off_ticks); // Removed ch (channel) from set_channel_ticks
         }
 
         std::string i2c_dev_;
@@ -222,11 +184,10 @@ public:
 
         int fd_{-1};
 
-        rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr sub_;
+        rclcpp::Subscription<interfaces::msg::MotorPosition>::SharedPtr sub_;
         rclcpp::TimerBase::SharedPtr timer_;
 
-        std::unordered_map<std::string, uint8_t> servo_map_;
-        std::unordered_map<std::string, double> target_pos_;
+        std::unordered_map<uint16_t, double> target_pos_;
 };
 
 int main(int argc, char** argv)

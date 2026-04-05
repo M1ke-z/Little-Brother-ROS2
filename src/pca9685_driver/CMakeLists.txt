@@ -9,13 +9,14 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(sensor_msgs REQUIRED)
+find_package(interfaces REQUIRED)
 
 add_executable(pca9685_node src/pca9685_node.cpp)
 
-ament_target_dependencies(
-  pca9685_node
+ament_target_dependencies( pca9685_node
   rclcpp
   sensor_msgs
+  interfaces
 )
 
 install(TARGETS
