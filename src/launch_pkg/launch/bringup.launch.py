@@ -33,4 +33,11 @@ def generate_launch_description():
         # arguments=["--ros-args", "--log-level", "info"],  # optional
     )
 
-    return LaunchDescription([node_a, node_b])
+    node_c = Node(
+        package="joy",
+        executable="joy_node",
+        name="node_c",
+        output="screen"
+    )
+
+    return LaunchDescription([node_a, node_b, node_c])
