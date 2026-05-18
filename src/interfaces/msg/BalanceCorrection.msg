@@ -1,0 +1,2 @@
+float64 roll_correction
+float64 pitch_correction

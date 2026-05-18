@@ -1,4 +1,4 @@
-/**:
+/node_b:
   ros__parameters:
     motor0:
       max_angle: 1.5707963267948966
@@ -12,7 +12,7 @@
       max_us: 2500.0
       min_angle: -1.5707963267948966
       min_us: 500.0
-      offset: 0.835398 #-0.05 + 0.785398
+      offset: 1.235398 #-0.05 + 0.785398
       inverted: true
     motor10:
       max_angle: 1.5707963267948966
@@ -61,7 +61,7 @@
       max_us: 2500.0
       min_angle: -1.5707963267948966
       min_us: 500.0
-      offset: 0.1 #0.02 #0.18
+      offset: 0.0 #0.02 #0.18
       inverted: true
     motor3:
       max_angle: 1.5707963267948966

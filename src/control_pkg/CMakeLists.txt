@@ -11,6 +11,8 @@ find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(interfaces REQUIRED)
+find_package(trajectory_msgs REQUIRED)
+
 
 add_executable(control_node 
   src/control_node.cpp
@@ -27,6 +29,7 @@ ament_target_dependencies(control_node
   std_msgs
   sensor_msgs
   interfaces
+  trajectory_msgs
 )
 
 ament_export_dependencies(rosidl_default_runtime)

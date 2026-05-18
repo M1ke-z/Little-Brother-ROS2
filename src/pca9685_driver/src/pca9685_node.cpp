@@ -113,7 +113,6 @@ public:
 
         void on_command(const interfaces::msg::MotorPosition &msg) {
             // message contains an array of servo names and the corresponding positions
-            // RCLCPP_INFO(this->get_logger(), "Recieved Message - PCA on_command");
 
             // store latest desired positions (radians)
             for(size_t i = 0; i < msg.motor.size() && i < msg.pulses.size(); i++) {
@@ -137,6 +136,7 @@ public:
             std::array<uint8_t, 65> buff = {};
             buff[0] = LED0_ON_L;
 
+            // change to on.size
             uint8_t num_channels = sizeof(on) / sizeof(uint16_t);
 
             for(uint8_t index = 0; index < num_channels; index ++){
@@ -146,13 +146,6 @@ public:
                 buff[index * 4 + 4] = static_cast<uint8_t>((off[index] >> 8) & 0xFF);
             }
 
-            // uint8_t buff[5] = {
-            //     reg,
-            //     static_cast<uint8_t>(on & 0xFF),
-            //     static_cast<uint8_t>((on >> 8) & 0xFF),
-            //     static_cast<uint8_t>(off & 0xFF),
-            //     static_cast<uint8_t>((off >> 8) & 0xFF)
-            // };
             if (write(fd_, &buff, 65) != 65) throw std::runtime_error("I2C channel write failed");
         }
 
