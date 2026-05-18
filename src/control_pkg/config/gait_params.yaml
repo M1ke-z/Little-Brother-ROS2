@@ -3,74 +3,72 @@
     idle:
       id: 1
       repeat: true
-      phase_offsets: [0, 0, 0, 0] 
-      min_frequency: 0.1 
-      max_frequency: 0.1
-      swing_control_points: [0.0, -10.0, 0.0, 0.0, -10.0, 0.0, 0.0, -10.0, 0.0, 0.0, -10.0, 0.0, 0.0, -10.0, 0.0, 0.0, -10.0, 0.0]
-      stance_control_points: [0.0, -10.0, 0.0, 0.0, -10.0, 0.0]
-      curve_offsets: [-20.0, -145.0, 0.0]
-      swing_switch_phase: 180.0
-      center_point: [0.0, -10.0, 0.0]
-      enter_from: [2, 3, 4]
+      phaseOffsets: [0, 0, 0, 0] 
+      minFrequency: 0.1 
+      maxFrequency: 0.1
+      swingControlPoints: [0.0, -10.0, 0.0, 0.0, -10.0, 0.0, 0.0, -10.0, 0.0, 0.0, -10.0, 0.0, 0.0, -10.0, 0.0, 0.0, -10.0, 0.0]
+      stanceControlPoints: [0.0, -10.0, 0.0, 0.0, -10.0, 0.0]
+      curveOffsets: [-20.0, -145.0, 0.0]
+      swingSwitchPhase: 180.0
+      centerPoint: [0.0, -10.0, 0.0]
+      enterFrom: [2, 3, 4]
     forwardTrot:
       id: 2
       repeat: true
-      phase_offsets: [0, 180, 180, 0] 
-      min_frequency: 0.4
-      max_frequency: 1.5
-      swing_control_points: [50.0, -10.0, 0.0, 60.0, -9.0, 0.0, 75.0, 37.0, 0.0, -65.0, 58.0, 0.0, -35.0, -16.0, 0.0, -20.0, -10.0, 0.0]
-      stance_control_points: [-20.0, -10.0, 0.0, 50.0, -10.0, 0.0]
-      curve_offsets: [-20.0, -145.0, 0.0]
-      swing_switch_phase: 120.0
-      center_point: [10.0, -10.0, 0.0]
-      enter_from: [3]
+      phaseOffsets: [0, 180, 180, 0] 
+      minFrequency: 0.4
+      maxFrequency: 1.5
+      swingControlPoints: [50.0, -10.0, 0.0, 60.0, -9.0, 0.0, 75.0, 37.0, 0.0, -65.0, 58.0, 0.0, -35.0, -16.0, 0.0, -20.0, -10.0, 0.0]
+      stanceControlPoints: [-20.0, -10.0, 0.0, 50.0, -10.0, 0.0]
+      curveOffsets: [-20.0, -145.0, 0.0]
+      swingSwitchPhase: 120.0
+      centerPoint: [10.0, -10.0, 0.0]
+      enterFrom: [3]
     forwardWalk:
       id: 3
       repeat: true
-      phase_offsets: [0, 180, 90, 270] 
-      min_frequency: 0.4
-      max_frequency: 1.0
-      swing_control_points: [50.0, -10.0, 0.0, 60.0, -9.0, 0.0, 75.0, 37.0, 0.0, -65.0, 58.0, 0.0, -35.0, -16.0, 0.0, -20.0, -10.0, 0.0]
-      stance_control_points: [-20.0, -10.0, 0.0, 50.0, -10.0, 0.0]
-      curve_offsets: [-20.0, -145.0, 0.0]
-      swing_switch_phase: 90.0
-      center_point: [10.0, -10.0, 0.0]
-      enter_from: [1, 2]
+      phaseOffsets: [0, 180, 90, 270] 
+      minFrequency: 0.4
+      maxFrequency: 1.0
+      swingControlPoints: [50.0, -10.0, 0.0, 60.0, -9.0, 0.0, 75.0, 37.0, 0.0, -65.0, 58.0, 0.0, -35.0, -16.0, 0.0, -20.0, -10.0, 0.0]
+      stanceControlPoints: [-20.0, -10.0, 0.0, 50.0, -10.0, 0.0]
+      curveOffsets: [-20.0, -145.0, 0.0]
+      swingSwitchPhase: 90.0
+      centerPoint: [10.0, -10.0, 0.0]
+      enterFrom: [1, 2]
     reverseWalk:
       id: 4
       repeat: true
-      phase_offsets: [0, 180, 90, 270] 
-      min_frequency: 0.2 
-      max_frequency: 1.0
-      swing_control_points: [-20.0, -10.0, 0.0, -35.0, -16.0, 0.0, -65.0, 58.0, 0.0, 75.0, 37.0, 0.0, 60.0, -9.0, 0.0, 50.0, -10.0, 0.0]
-      stance_control_points: [50.0, -10.0, 0.0, -20.0, -10.0, 0.0]
-      curve_offsets: [-20.0, -145.0, 0.0]
-      swing_switch_phase: 90.0
-      center_point: [0.0, -10.0, 0.0]
-      enter_from: [0]
+      phaseOffsets: [0, 180, 90, 270] 
+      minFrequency: 0.2 
+      maxFrequency: 1.0
+      swingControlPoints: [-20.0, -10.0, 0.0, -35.0, -16.0, 0.0, -65.0, 58.0, 0.0, 75.0, 37.0, 0.0, 60.0, -9.0, 0.0, 50.0, -10.0, 0.0]
+      stanceControlPoints: [50.0, -10.0, 0.0, -20.0, -10.0, 0.0]
+      curveOffsets: [-20.0, -145.0, 0.0]
+      swingSwitchPhase: 90.0
+      centerPoint: [0.0, -10.0, 0.0]
+      enterFrom: [0]
     rest:
       id: 5
       repeat: true
-      phase_offsets: [0, 0, 0, 0] 
-      min_frequency: 0.1 
-      max_frequency: 0.1
-      swing_control_points: [-30.0, -80.0, 0.0, -30.0, -80.0, 0.0, -30.0, -80.0, 0.0, -30.0, -80.0, 0.0, -30.0, -80.0, 0.0, -30.0, -80.0, 0.0]
-      stance_control_points: [-30.0, -80.0, 0.0, -30.0, -80.0, 0.0]
-      curve_offsets: [0.0, 0.0, 0.0]
-      swing_switch_phase: 180.0
-      center_point: [0.0, -10.0, 0.0]
-      enter_from: [1]
+      phaseOffsets: [0, 0, 0, 0] 
+      minFrequency: 0.1 
+      maxFrequency: 0.1
+      swingControlPoints: [-30.0, -80.0, 0.0, -30.0, -80.0, 0.0, -30.0, -80.0, 0.0, -30.0, -80.0, 0.0, -30.0, -80.0, 0.0, -30.0, -80.0, 0.0]
+      stanceControlPoints: [-30.0, -80.0, 0.0, -30.0, -80.0, 0.0]
+      curveOffsets: [0.0, 0.0, 0.0]
+      swingSwitchPhase: 180.0
+      centerPoint: [0.0, -10.0, 0.0]
+      enterFrom: [1]
     lookUp:
       id: 5
       repeat: true
-      phase_offsets: [0, 0, 0, 0] 
-      min_frequency: 0.1 
-      max_frequency: 0.1
-      swing_control_points: [-40.0, -170.0, 0.0, -40.0, -170.0, 0.0, -30.0, -80.0, 0.0, -30.0, -80.0, 0.0, -30.0, -80.0, 0.0, -30.0, -80.0, 0.0]
-      stance_control_points: [-30.0, -80.0, 0.0, -30.0, -80.0, 0.0]
-      curve_offsets: [0.0, 0.0, 0.0]
-      swing_switch_phase: 180.0
-      center_point: [0.0, -10.0, 0.0]
-      enter_from: [1]
-
-      #[30.0, -10.0, 0.0, 60.0, -9.0, 0.0, 75.0, 27.0, 0.0, -65.0, 68.0, 0.0, -35.0, -16.0, 0.0, -10.0, -10.0, 0.0]
+      phaseOffsets: [0, 0, 0, 0] 
+      minFrequency: 0.1 
+      maxFrequency: 0.1
+      swingControlPoints: [-40.0, -170.0, 0.0, -40.0, -170.0, 0.0, -30.0, -80.0, 0.0, -30.0, -80.0, 0.0, -30.0, -80.0, 0.0, -30.0, -80.0, 0.0]
+      stanceControlPoints: [-30.0, -80.0, 0.0, -30.0, -80.0, 0.0]
+      curveOffsets: [0.0, 0.0, 0.0]
+      swingSwitchPhase: 180.0
+      centerPoint: [0.0, -10.0, 0.0]
+      enterFrom: [1]

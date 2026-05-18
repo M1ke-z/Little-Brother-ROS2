@@ -1,2 +1,0 @@
-float64[3] end_effector_location
-float64 move_duration

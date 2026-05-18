@@ -18,10 +18,10 @@ class PCA9685Driver : public rclcpp::Node {
 public:
     PCA9685Driver() : Node("pca9685_driver") {
         // Declare the parameters for the pca9685
-        i2c_dev_ = this->declare_parameter<std::string>("i2c_dev", "/dev/i2c-1");
-        i2c_addr_ = this->declare_parameter<int>("i2c_addr", 0x40);
-        pwm_hz_ = this->declare_parameter<double>("pwm_hz", 50.0);
-        update_hz_ = this->declare_parameter<double>("update_hz", 50.0);
+        i2cDev = this->declare_parameter<std::string>("i2c_dev", "/dev/i2c-1");
+        i2cAddr = this->declare_parameter<int>("i2c_addr", 0x40);
+        pwmHz = this->declare_parameter<double>("pwm_hz", 50.0);
+        updateHz = this->declare_parameter<double>("update_hz", 50.0);
 
         open_i2c();
         init_pca9685();
@@ -33,7 +33,7 @@ public:
             [this](interfaces::msg::MotorPosition::SharedPtr msg) {on_command(*msg);});
 
         timer_ = this->create_wall_timer(
-            std::chrono::duration<double>(1.0 / update_hz_),
+            std::chrono::duration<double>(1.0 / updateHz),
             [this]() { write_outputs(); }
         );
 
@@ -60,13 +60,13 @@ public:
 
         void open_i2c() {
             // Open the linux i2c bus 
-            fd_ = open(i2c_dev_.c_str(), O_RDWR);
-            RCLCPP_INFO(this->get_logger(), i2c_dev_.c_str());
+            fd_ = open(i2cDev.c_str(), O_RDWR);
+            RCLCPP_INFO(this->get_logger(), i2cDev.c_str());
             // If the integer is < 0 then the i2c bus has already been opened
             if  (fd_ < 0) throw std::runtime_error("Failed to open I2C device"); 
 
             // If the slave address cannot be sent then throw an error
-            if (ioctl(fd_, I2C_SLAVE, i2c_addr_) < 0) throw std::runtime_error("Failed to set I2C slave address");
+            if (ioctl(fd_, I2C_SLAVE, i2cAddr) < 0) throw std::runtime_error("Failed to set I2C slave address");
         }
 
         void i2c_write_reg(uint8_t reg, uint8_t value) {
@@ -92,7 +92,7 @@ public:
             // Forces the device to restart and puts the oscillator into a low power mode
             i2c_write_reg(MODE1, (mode1 & ~MODE1_RESTART) | MODE1_SLEEP);
 
-            set_pwm_freq(pwm_hz_);
+            set_pwm_freq(pwmHz);
 
             // Wake + auto increment
             i2c_write_reg(MODE1, MODE1_AI);
@@ -105,8 +105,8 @@ public:
             // PCA9685 internal osc is typically 25 MHz
             constexpr double osc_hz = 25000000.0;
             
-            double prescale_f = (osc_hz / (4096.0 * hz)) - 1.0;
-            uint8_t prescale = static_cast<uint8_t>(std::lround(prescale_f));
+            double prescaleFreq = (osc_hz / (4096.0 * hz)) - 1.0;
+            uint8_t prescale = static_cast<uint8_t>(std::lround(prescaleFreq));
 
             i2c_write_reg(PRESCALE, prescale);
         }
@@ -117,7 +117,7 @@ public:
             // store latest desired positions (radians)
             for(size_t i = 0; i < msg.motor.size() && i < msg.pulses.size(); i++) {
                 // RCLCPP_INFO(this->get_logger(), "%.2f, %d, %ld", msg.pulses[i], msg.motor[i], i);
-                target_pos_[msg.motor[i]] = us_to_ticks(msg.pulses[i]);
+                targetPos[msg.motor[i]] = us_to_ticks(msg.pulses[i]);
             }
         }
 
@@ -127,19 +127,13 @@ public:
             // on is normally 1 for servos
             // since the registers are only 8 bits we need to split them into two seperate values into a lower and higher value in the buffer
 
-            // Will need to rewrite this to do batch updates
-            // Need to set PCA9685 to auto increment;
-
-            //uint8_t reg = LED0_ON_L; //+ 4 * channel;
-
-            // Test this to make sure that the write for servos works. Need to account for empty channels (3, 7, 11, 15)
             std::array<uint8_t, 65> buff = {};
             buff[0] = LED0_ON_L;
 
             // change to on.size
-            uint8_t num_channels = sizeof(on) / sizeof(uint16_t);
+            uint8_t numChannels = on.size();
 
-            for(uint8_t index = 0; index < num_channels; index ++){
+            for(uint8_t index = 0; index < numChannels; index ++){
                 buff[index * 4 + 1] = static_cast<uint8_t>(on[index] & 0xFF);
                 buff[index * 4 + 2] = static_cast<uint8_t>((on[index] >> 8) & 0xFF);
                 buff[index * 4 + 3] = static_cast<uint8_t>(off[index] & 0xFF);
@@ -150,37 +144,36 @@ public:
         }
 
         void write_outputs() {
-            std::array<uint16_t, 16> off_ticks = {};
-            std::array<uint16_t, 16> on_ticks = {};
+            std::array<uint16_t, 16> offTicks = {};
+            std::array<uint16_t, 16> onTicks = {};
 
-            for (const auto& [servo_num, servo_ticks] : target_pos_) {
-                off_ticks[servo_num] = servo_ticks;
+            for (const auto& [servo_num, servoTicks] : targetPos) {
+                offTicks[servo_num] = servoTicks;
             }
 
-            set_channel_ticks(on_ticks, off_ticks); // Removed ch (channel) from set_channel_ticks
+            set_channel_ticks(onTicks, offTicks); // Removed ch (channel) from set_channel_ticks
         }
 
-        uint16_t us_to_ticks(double pulse_us) const {
-            double period_us = 1e6 / pwm_hz_;
-            double ticks = (pulse_us / period_us) * 4096.0;
+        uint16_t us_to_ticks(double pulseUs) const {
+            double periodUs = 1e6 / pwmHz;
+            double ticks = (pulseUs / periodUs) * 4096.0;
             if(ticks < 0.0) ticks = 0.0;
             if(ticks > 4095.0) ticks = 4095.0;
             return static_cast<uint16_t>(std::lround(ticks));
         }
 
-        std::string i2c_dev_;
-        int i2c_addr_;
-        double pwm_hz_;
-        double update_hz_;
-        double max_us_;
-        double min_us_;
+        std::string i2cDev;
+        
+        int i2cAddr;
+        double pwmHz;
+        double updateHz;
 
         int fd_{-1};
 
         rclcpp::Subscription<interfaces::msg::MotorPosition>::SharedPtr sub_;
         rclcpp::TimerBase::SharedPtr timer_;
 
-        std::unordered_map<uint16_t, double> target_pos_;
+        std::unordered_map<uint16_t, double> targetPos;
 };
 
 int main(int argc, char** argv)
