@@ -11,11 +11,11 @@ constexpr int DEFAULT_MIN_US = 544;
 
 /*      Declare Structs     */ 
 struct MotorData {
-    double max_angle;
-    double min_angle;
+    double maxAngle;
+    double minAngle;
     double offset;
-    double min_us;
-    double max_us;
+    double minUs;
+    double maxUs;
     bool inverted;
 };
 
@@ -24,37 +24,36 @@ void declare_motor_parameters(rclcpp::Node& node);
 std::array<MotorData, NUM_MOTORS> get_motor_parameters(rclcpp::Node& node);
 
 /* Declare Classes */
-
 class gait{
     public:
         gait();
 
         gait(
-            std::vector<int64_t> phase_offsets, 
+            std::vector<int64_t> phaseOffsets, 
             double minFrequency,
             double maxFrequency, 
-            std::vector<std::vector<double>> swing_control_points, 
-            std::vector<std::vector<double>> stance_control_points, 
-            std::vector<double> curve_offsets, 
-            double swing_switch_phase,
-            std::vector<double> center_point
+            std::vector<std::vector<double>> swingControlPoints, 
+            std::vector<std::vector<double>> stanceControlPoints, 
+            std::vector<double> curveOffsets, 
+            double swingSwitchPhase,
+            std::vector<double> centerPoint
         );
 
-        double getMinGaitFrequency() const;
+        double get_min_gait_frequency() const;
 
-        double getMaxGaitFrequency() const;
+        double get_max_gait_frequency() const;
 
-        std::vector<int64_t> getPhaseOffset() const;
+        std::vector<int64_t> get_phase_offset() const;
 
-        std::vector<double> getCurveOffsets() const;
+        std::vector<double> get_curve_offsets() const;
 
-        std::vector<std::vector<double>> getSwingControlPoints() const;
+        std::vector<std::vector<double>> get_swing_control_points() const;
 
-        std::vector<std::vector<double>> getStanceControlPoints() const;
+        std::vector<std::vector<double>> get_stance_control_points() const;
 
-        double getSwingSwitchPhase() const;
+        double get_swing_switch_phase() const;
 
-        std::vector<double> getCenterPoint() const;
+        std::vector<double> get_center_point() const;
 
     private:
         std::vector<int64_t> phaseOffsets;
@@ -71,6 +70,6 @@ class gait{
         double swingSwitchPhase;
 };
 
-gait get_gait_params(rclcpp::Node& node, std::string gait_name);
+gait get_gait_params(rclcpp::Node& node, std::string gaitName);
 
 #endif

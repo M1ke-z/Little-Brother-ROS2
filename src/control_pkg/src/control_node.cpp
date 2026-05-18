@@ -14,11 +14,11 @@
 
 #include "sensor_msgs/msg/joy.hpp"
 
-class global_gait_control {
+class globalGaitControl {
     public:
         bool enableBalanceOffsets = false;
 
-        global_gait_control() = default;
+        globalGaitControl() = default;
 
         void queue_gait(gait *gait){
             if(primaryGait == nullptr) {
@@ -30,100 +30,97 @@ class global_gait_control {
             }
         }
 
-        std::array<double, 3> get_foot_position(uint16_t leg_num){
+        std::array<double, 3> get_foot_position(uint16_t legNum){
 
             if(primaryGait == nullptr) {
                 return std::array<double, 3>{-20.0, -155.0, 0};
             }
 
             double legTurnScale = 0.0;
-            if(gaitTurnScale < 0.0 && (leg_num == 1 || leg_num == 3)) legTurnScale = std::abs(gaitTurnScale);
-            else if(gaitTurnScale > 0.0 && (leg_num == 0 || leg_num == 2)) legTurnScale = std::abs(gaitTurnScale);
+            if(gaitTurnScale < 0.0 && (legNum == 1 || legNum == 3)) legTurnScale = std::abs(gaitTurnScale);
+            else if(gaitTurnScale > 0.0 && (legNum == 0 || legNum == 2)) legTurnScale = std::abs(gaitTurnScale);
 
-            std::vector<int64_t> phaseOffsets = primaryGait->getPhaseOffset();
+            std::vector<int64_t> phaseOffsets = primaryGait->get_phase_offset();
 
-            double primaryPhase = std::fmod(phaseClock + phaseOffsets[leg_num], 360.0);
+            double primaryPhase = std::fmod(phaseClock + phaseOffsets[legNum], 360.0);
+            double primarySwingSwitchPhase = primaryGait->get_swing_switch_phase();
 
-            std::array<double, 3> primary_position;
+            std::array<double, 3> primaryPosition;
 
-            if(primaryPhase <= primaryGait->getSwingSwitchPhase()){
-                primary_position = get_curve_points(
-                    primaryGait->getSwingControlPoints(), 
-                    primaryGait->getCurveOffsets(), 
-                    primaryPhase / primaryGait->getSwingSwitchPhase(),
+            if(primaryPhase <= primarySwingSwitchPhase){
+                primaryPosition = get_curve_points(
+                    primaryGait->get_swing_control_points(), 
+                    primaryGait->get_curve_offsets(), 
+                    primaryPhase / primarySwingSwitchPhase,
                     legTurnScale,
-                    primaryGait->getCenterPoint()
+                    primaryGait->get_center_point()
                 );
             } 
             else{
-                primary_position = get_curve_points(
-                    primaryGait->getStanceControlPoints(), 
-                    primaryGait->getCurveOffsets(), 
-                    (primaryPhase - primaryGait->getSwingSwitchPhase()) / (360.0 - primaryGait->getSwingSwitchPhase()),
+                primaryPosition = get_curve_points(
+                    primaryGait->get_stance_control_points(), 
+                    primaryGait->get_curve_offsets(), 
+                    (primaryPhase - primarySwingSwitchPhase) / (360.0 - primarySwingSwitchPhase),
                     legTurnScale,
-                    primaryGait->getCenterPoint()
+                    primaryGait->get_center_point()
                 );
             } 
 
             if(inTransition){
-                std::vector<int64_t> transitionPhaseOffsets = transitionGait->getPhaseOffset();
-                double transitionPhase = std::fmod(phaseClock + transitionPhaseOffsets[leg_num], 360.0);
+                std::vector<int64_t> transitionPhaseOffsets = transitionGait->get_phase_offset();
 
-                std::array<double, 3> transition_position;
+                double transitionPhase = std::fmod(phaseClock + transitionPhaseOffsets[legNum], 360.0);
+                double transitionSwingSwitchPhase = transitionGait->get_swing_switch_phase();
+
+                std::array<double, 3> transitionPosition;
                 
-                if(transitionPhase <= transitionGait->getSwingSwitchPhase()) transition_position = get_curve_points(
-                    transitionGait->getSwingControlPoints(), 
-                    transitionGait->getCurveOffsets(), 
-                    transitionPhase / transitionGait->getSwingSwitchPhase(),
+                if(transitionPhase <= transitionSwingSwitchPhase) transitionPosition = get_curve_points(
+                    transitionGait->get_swing_control_points(), 
+                    transitionGait->get_curve_offsets(), 
+                    transitionPhase / transitionSwingSwitchPhase,
                     legTurnScale,
-                    transitionGait->getCenterPoint()
+                    transitionGait->get_center_point()
                 );
-                else transition_position = get_curve_points(
-                    transitionGait->getStanceControlPoints(), 
-                    transitionGait->getCurveOffsets(), 
-                    (transitionPhase - transitionGait->getSwingSwitchPhase()) / (360.0 - transitionGait->getSwingSwitchPhase()),
+                else transitionPosition = get_curve_points(
+                    transitionGait->get_stance_control_points(), 
+                    transitionGait->get_curve_offsets(), 
+                    (transitionPhase - transitionSwingSwitchPhase) / (360.0 - transitionSwingSwitchPhase),
                     legTurnScale,
-                    transitionGait->getCenterPoint()
+                    transitionGait->get_center_point()
                 );
 
-                std::array<double, 3> blended_position = {
-                    (1.0 - transitionProgress) * primary_position[0] + transitionProgress * transition_position[0],
-                    (1.0 - transitionProgress) * primary_position[1] + transitionProgress * transition_position[1],
-                    (1.0 - transitionProgress) * primary_position[2] + transitionProgress * transition_position[2]
+                std::array<double, 3> blendedPosition = {
+                    (1.0 - transitionProgress) * primaryPosition[0] + transitionProgress * transitionPosition[0],
+                    (1.0 - transitionProgress) * primaryPosition[1] + transitionProgress * transitionPosition[1],
+                    (1.0 - transitionProgress) * primaryPosition[2] + transitionProgress * transitionPosition[2]
                 };
                 
                 if(enableBalanceOffsets)
                 {
-                    if(leg_num == 0 || leg_num == 1) blended_position[1] += pitch_correction;
-                    else blended_position[1] -= pitch_correction;
+                    if(legNum == 0 || legNum == 1) blendedPosition[1] += pitchCorrection;
+                    else blendedPosition[1] -= pitchCorrection;
 
-                    if(leg_num == 0 || leg_num == 2) blended_position[1] -= roll_correction;
-                    else blended_position[1] += roll_correction;
+                    if(legNum == 0 || legNum == 2) blendedPosition[1] -= rollCorrection;
+                    else blendedPosition[1] += rollCorrection;
                 }
 
-                //check_points(blended_position);
-
-                return blended_position;
+                return blendedPosition;
             }
             else {
                 if(enableBalanceOffsets)
                 {
-                    //std::cout << "Roll Correction: " << roll_correction << ", Pitch Correction: " << pitch_correction << std::endl;
+                    if(legNum == 0 || legNum == 1) primaryPosition[1] += pitchCorrection;
+                    else primaryPosition[1] -= pitchCorrection;
 
-                    if(leg_num == 0 || leg_num == 1) primary_position[1] += pitch_correction;
-                    else primary_position[1] -= pitch_correction;
-
-                    if(leg_num == 0 || leg_num == 2) primary_position[1] -= roll_correction;
-                    else primary_position[1] += roll_correction;
+                    if(legNum == 0 || legNum == 2) primaryPosition[1] -= rollCorrection;
+                    else primaryPosition[1] += rollCorrection;
                 }
 
-                //check_points(primary_position);
-
-                return primary_position;
+                return primaryPosition;
             }
         }
 
-        std::array<std::array<double, 3>, 4> runNextTick(){
+        std::array<std::array<double, 3>, 4> run_next_tick(){
 
             if(controllerTurnScale < gaitTurnScale) gaitTurnScale = std::max(gaitTurnScale - turnScaleIncrement, controllerTurnScale);
             else if(controllerTurnScale > gaitTurnScale) gaitTurnScale = std::min(gaitTurnScale + turnScaleIncrement, controllerTurnScale);
@@ -131,11 +128,11 @@ class global_gait_control {
             double primaryGaitFrequency = 0.1;
 
             if(primaryGait != nullptr) {
-                primaryGaitFrequency = primaryGait->getMinGaitFrequency() + (primaryGait->getMaxGaitFrequency() - primaryGait->getMinGaitFrequency()) * frequencyScale;
+                primaryGaitFrequency = primaryGait->get_min_gait_frequency() + (primaryGait->get_max_gait_frequency() - primaryGait->get_min_gait_frequency()) * frequencyScale;
             }
 
             if(inTransition){
-                double transitionGaitFrequency = transitionGait->getMinGaitFrequency() + (transitionGait->getMaxGaitFrequency() - transitionGait->getMinGaitFrequency()) * frequencyScale;
+                double transitionGaitFrequency = transitionGait->get_min_gait_frequency() + (transitionGait->get_max_gait_frequency() - transitionGait->get_min_gait_frequency()) * frequencyScale;
 
                 transitionProgress += 1 / 50.0; // This should be based on the time since the last tick and the desired transition time
                 transitionProgress = std::min(transitionProgress, 1.0);
@@ -156,13 +153,13 @@ class global_gait_control {
 
             phaseClock += std::fmod(360.0 * gaitFrequency / 50.0, 360.0); // This might cause a weird slowing effect. Look into this later
 
-            std::array<std::array<double, 3>, 4> foot_positions;
+            std::array<std::array<double, 3>, 4> footPositions;
 
-            for(uint16_t leg_num = 0; leg_num < 4; leg_num++){
-                foot_positions[leg_num] = get_foot_position(leg_num);
+            for(uint16_t legNum = 0; legNum < 4; legNum++){
+                footPositions[legNum] = get_foot_position(legNum);
             }
 
-            return foot_positions;
+            return footPositions;
         }
 
         gait* get_primary_gait() const { return primaryGait; }
@@ -176,12 +173,12 @@ class global_gait_control {
             controllerTurnScale = std::clamp(scale, -1.0, 1.0);
         }
 
-        void set_roll_correction(double roll_correction){
-            this->roll_correction = roll_correction;
+        void set_roll_correction(double rollCorrection){
+            this->rollCorrection = rollCorrection;
         }
 
-        void set_pitch_correction(double pitch_correction){
-            this->pitch_correction = pitch_correction;
+        void set_pitch_correction(double pitchCorrection){
+            this->pitchCorrection = pitchCorrection;
         }
         
     private:
@@ -198,8 +195,8 @@ class global_gait_control {
         double stanceSwitchPrimary = 180.0;
         double stanceSwitchTransition = 180.0;
 
-        double roll_correction;
-        double pitch_correction;
+        double rollCorrection;
+        double pitchCorrection;
 
         bool inTransition = false;
 
@@ -210,7 +207,7 @@ class global_gait_control {
         {
             // This function should also be updated so that it just handles bezier point calculation and not turning / offsets
             // Hard code for n=5 and n=1 for now, however, actually implementing the general case should not be too difficult and would allow for more complex gaits in the future. Look into this later
-            std::vector<std::function<double(double)>> bernstein_polynomials_5 = {
+            std::vector<std::function<double(double)>> bernsteinPolynomials5 = {
                 [](double t) {return std::pow((1.0-t), 5);},
                 [](double t) {return 5 * std::pow((1.0-t), 4) * t;},
                 [](double t) {return 10 * std::pow((1.0-t), 3) * std::pow(t, 2);},
@@ -219,28 +216,28 @@ class global_gait_control {
                 [](double t) {return std::pow((t), 5);}
             };
 
-            std::vector<std::function<double(double)>> bernstein_polynomials_1 = {
+            std::vector<std::function<double(double)>> bernsteinPolynomials1 = {
                 [](double t) {return 1.0-t;},
                 [](double t) {return t;}
             };
 
             std::array<double, 3> position = {0.0, 0.0, 0.0};
 
-            std::vector<std::function<double(double)>> bernstein_polynomials;
+            std::vector<std::function<double(double)>> bernsteinPolynomials;
 
             if(bezierControlPoints.size() == 6){
-                bernstein_polynomials = bernstein_polynomials_5;
+                bernsteinPolynomials = bernsteinPolynomials5;
             } 
             else if(bezierControlPoints.size() == 2){
-                bernstein_polynomials = bernstein_polynomials_1;
+                bernsteinPolynomials = bernsteinPolynomials1;
             }
 
             for(uint16_t index = 0; index < bezierControlPoints.size(); index++)
             {
-                double polynomial_factor = bernstein_polynomials[index](t);
-                position[0] += polynomial_factor * bezierControlPoints[index][0];
-                position[1] += polynomial_factor * bezierControlPoints[index][1];
-                position[2] += polynomial_factor * bezierControlPoints[index][2];
+                double polynomialFactor = bernsteinPolynomials[index](t);
+                position[0] += polynomialFactor * bezierControlPoints[index][0];
+                position[1] += polynomialFactor * bezierControlPoints[index][1];
+                position[2] += polynomialFactor * bezierControlPoints[index][2];
             }  
 
             position[0] = (position[0] - ((position[0] - centerPoint[0]) * 0.5 * turnScale)) + curveOffsets[0];
@@ -250,15 +247,13 @@ class global_gait_control {
             return position;
         }
 
-        void check_points(std::array<double, 3> foot_position){
-            // Currently this just handles points along the plane of the leg
+        void check_points(std::array<double, 3> footPosition){
+            // Currently this just handles points along the xy plane of the leg
             // Extend an extra dimension
             
-
-            // 400
-            if(10000 < std::pow((foot_position[0] + 56), 2) + std::pow((foot_position[1] + 102), 2)) throw std::runtime_error("Invalid Position");
-            if(8900 > std::pow((foot_position[0] + 120), 2) + std::pow((foot_position[1] + 21), 2)) throw std::runtime_error("Invalid Position"); 
-            if(13800 > std::pow((foot_position[0] - 58), 2) + std::pow((foot_position[1] + 12), 2)) throw std::runtime_error("Invalid Position"); 
+            if(10000 < std::pow((footPosition[0] + 56), 2) + std::pow((footPosition[1] + 102), 2)) throw std::runtime_error("Invalid Position");
+            if(8900 > std::pow((footPosition[0] + 120), 2) + std::pow((footPosition[1] + 21), 2)) throw std::runtime_error("Invalid Position"); 
+            if(13800 > std::pow((footPosition[0] - 58), 2) + std::pow((footPosition[1] + 12), 2)) throw std::runtime_error("Invalid Position"); 
         }
 };
 
@@ -275,14 +270,13 @@ public:
         rest = get_gait_params(*this, "rest");
 
         // Queue the rest gait by default
-        gait_control.queue_gait(&rest);
+        gaitControl.queue_gait(&rest);
 
-        // These channels should be passed in as parameters rather than hardcoded. Look into this
         // FL1 - Front, Left, 1st Motor
         // 1st Motor - Shoulder Joint
         // 2nd Motor - Upper Joint
         // 3rd Motor - Lower Elbow Joint
-        servo_map_ = {
+        servoMap = {
             {"servoFL1", 0}, {"servoFL2", 1}, {"servoFL3", 2},
             {"servoFR1", 4}, {"servoFR2", 5}, {"servoFR3", 6},
             {"servoBR1", 8}, {"servoBR2", 9}, {"servoBR3", 10},
@@ -291,7 +285,7 @@ public:
 
         // This is used in the event that all of the servos need to be updated and provides and easy way to iterate over them
         // The update servo function should really be modified to take a vector of integers instead of strings so that this is not needed
-        servo_names = {
+        servoNames = {
             "servoFL1", "servoFL2", "servoFL3", 
             "servoFR1", "servoFR2", "servoFR3", 
             "servoBR1", "servoBR2", "servoBR3", 
@@ -301,21 +295,21 @@ public:
         _subController = this->create_subscription<sensor_msgs::msg::Joy>(
             "/joy", rclcpp::QoS(10),
             [this](sensor_msgs::msg::Joy::SharedPtr msg){
-                inputHandler(*msg);
+                input_handler(*msg);
             }
         );
 
         _subMove = this->create_subscription<interfaces::msg::MotorTesting>(
             "control/moveServos", rclcpp::QoS(10),
             [this](interfaces::msg::MotorTesting::SharedPtr msg){
-                moveServos(*msg);
+                move_servos(*msg);
             }
         );  
 
         _subBalanceCorrection = this->create_subscription<interfaces::msg::BalanceCorrection>(
             "control/balanceCorrection", rclcpp::SensorDataQoS(),
             [this](interfaces::msg::BalanceCorrection::SharedPtr msg){
-                updateBalanceCorrection(*msg);
+                update_balance_correction(*msg);
             }
         ); 
 
@@ -331,13 +325,13 @@ public:
             "/balance/reset_balance", 10
         );
 
-        timer_ = this->create_wall_timer(
+        _timer = this->create_wall_timer(
             std::chrono::duration<double>(1.0 / 50.0),
-            [this]() { nextTick(); }
+            [this]() { next_tick(); }
         );
 
         declare_motor_parameters(*this);
-        motor_parameters = get_motor_parameters(*this);
+        motorParameters = get_motor_parameters(*this);
     }
 
 private:
@@ -352,14 +346,14 @@ private:
     rclcpp::Publisher<trajectory_msgs::msg::JointTrajectory>::SharedPtr _jointPublisher;
     rclcpp::Publisher<interfaces::msg::MotorPosition>::SharedPtr _resetBalancePublisher;
 
-    rclcpp::TimerBase::SharedPtr timer_;
+    rclcpp::TimerBase::SharedPtr _timer;
 
-    std::unordered_map<std::string, uint8_t> servo_map_;
-    std::array<std::string, 12> servo_names;
+    std::unordered_map<std::string, uint8_t> servoMap;
+    std::array<std::string, 12> servoNames;
 
-    std::array<MotorData, 16> motor_parameters;
+    std::array<MotorData, 16> motorParameters;
 
-    global_gait_control gait_control{};
+    globalGaitControl gaitControl{};
 
     gait idle;
     gait forwardTrot;
@@ -379,13 +373,13 @@ private:
 
     const std::array<double, 2> motorPos = {-20, -20};
 
-    double invCosLaw(double sideA, double sideB, double sideC) {
+    double inv_cos_law(double sideA, double sideB, double sideC) {
         // This function returns angle C in radians
         // sideA and sideB are interchangable 
         return std::acos((std::pow(sideC, 2) - std::pow(sideA, 2) - std::pow(sideB, 2))/(-2 * sideA * sideB));
     }
 
-    std::array<double, 4> calcJointAngles(std::array<double, 3> footPosition){
+    std::array<double, 4> calc_joint_angles(std::array<double, 3> footPosition){
         // Inverse kinematics to calculate the joint angles requried to reach a certian position
 
         // Declare arrays to hold calculated intermediate values 
@@ -397,7 +391,7 @@ private:
 
         if(footPosition[0] > 0) calcAng[0] = M_PI - calcAng[0];
 
-        calcAng[1] = invCosLaw(calcLen[0], linkLen[5], linkLen[4]);
+        calcAng[1] = inv_cos_law(calcLen[0], linkLen[5], linkLen[4]);
         calcAng[2] = calcAng[0] - calcAng[1];
         calcAng[3] = M_PI - linkAng[0] - calcAng[2];
 
@@ -406,7 +400,7 @@ private:
 
         calcLen[1] = std::sqrt(std::pow(x2, 2) + std::pow(y2, 2));
         calcAng[4] = std::atan(std::abs(y2)/std::abs(x2));
-        calcAng[5] = invCosLaw(calcLen[1], linkLen[0], linkLen[1]);
+        calcAng[5] = inv_cos_law(calcLen[1], linkLen[0], linkLen[1]);
         calcAng[6] = calcAng[4] - calcAng[5];
 
         double motor2Ang = std::atan(
@@ -419,24 +413,22 @@ private:
         return std::array<double, 4> {0, motor2Ang, calcAng[6], motorCalfAng};
     }
 
-    void nextTick() {
-        std::array<std::array<double, 3>, 4> foot_position = gait_control.runNextTick();
+    void next_tick() {
+        std::array<std::array<double, 3>, 4> footPosition = gaitControl.run_next_tick();
 
-        std::vector<double> v_joint_angles = {};
+        std::vector<double> vJointAngles = {};
 
-        for (uint16_t leg_num = 0; leg_num < 4; leg_num++){
-            std::array<double, 4> joint_angles = calcJointAngles(foot_position[leg_num]);
-            v_joint_angles.insert(v_joint_angles.end(), joint_angles.begin(), joint_angles.end());
+        for (uint16_t legNum = 0; legNum < 4; legNum++){
+            std::array<double, 4> jointAngles = calc_joint_angles(footPosition[legNum]);
+            vJointAngles.insert(vJointAngles.end(), jointAngles.begin(), jointAngles.end());
         }
-
-        // RCLCPP_INFO(this->get_logger(), "Servo1: %.2f, Servo2: %.2f, ServoCalf: %.2f", v_joint_angles[0], v_joint_angles[1], v_joint_angles[3]);
 
         update_servo_positions(std::vector<std::string>{
             "servoFL1", "servoFL2", "servoFL3", "servoFLCalf", 
             "servoFR1", "servoFR2", "servoFR3", "servoFRCalf",
             "servoBL1", "servoBL2", "servoBL3", "servoBLCalf",
             "servoBR1", "servoBR2", "servoBR3", "servoBRCalf"}, 
-            v_joint_angles);
+            vJointAngles);
 
         return;
     }
@@ -448,10 +440,10 @@ private:
         std::vector<uint16_t> motors;
         std::vector<double> pulses;
         
-        trajectory_msgs::msg::JointTrajectory joint_message;
-        trajectory_msgs::msg::JointTrajectoryPoint trajectory_point;
+        trajectory_msgs::msg::JointTrajectory jointMessage;
+        trajectory_msgs::msg::JointTrajectoryPoint trajectoryPoint;
 
-        trajectory_point.time_from_start.sec = 1/50.0;
+        trajectoryPoint.time_from_start.sec = 1/50.0;
 
         // Loop over each servo that was provided
         for(uint16_t i = 0; i < names.size(); i++){
@@ -459,13 +451,13 @@ private:
             // Format data for Gazebo joints. We are not simulating the entire linkage system so a calculated calf angle 
             // needs to be provided
             if(names[i].back() != '3'){
-                joint_message.joint_names.push_back(names[i]);
+                jointMessage.joint_names.push_back(names[i]);
                 if(names[i].back() == '2')
                 {
-                    trajectory_point.positions.push_back(angles[i] * -1);
+                    trajectoryPoint.positions.push_back(angles[i] * -1);
                 }
                 else {
-                    trajectory_point.positions.push_back(angles[i]);
+                    trajectoryPoint.positions.push_back(angles[i]);
                 }
                 
             }
@@ -473,29 +465,29 @@ private:
             double angle = angles[i];
 
             // Find the servo data based on the servo name
-            auto servo = servo_map_.find(names[i]);
+            auto servo = servoMap.find(names[i]);
 
             // If the value doesn't exist in the servo map then skip the motor (Mostly for sim calf joint)
-            if(servo == servo_map_.end()){
+            if(servo == servoMap.end()){
                 continue;
             }
 
-            const auto& servo_num = servo->second;
-            MotorData servo_params = motor_parameters[servo_num];
+            const auto& servoNum = servo->second;
+            MotorData servoParams = motorParameters[servoNum];
 
             // Update the servo angle based on the parameters
-            if(servo_params.inverted) angle = angle * -1.0;  // Servos on the opposite side of the robot move in the opposite direction
+            if(servoParams.inverted) angle = angle * -1.0;  // Servos on the opposite side of the robot move in the opposite direction
             
-            angle += servo_params.offset;           // Add the calibration offset
-            angle = std::clamp(angle, servo_params.min_angle, servo_params.max_angle); // Clamp the angle based on the max and min parameters
+            angle += servoParams.offset;           // Add the calibration offset
+            angle = std::clamp(angle, servoParams.minAngle, servoParams.maxAngle); // Clamp the angle based on the max and min parameters
     
-            motors.push_back(servo_num);
-            pulses.push_back(rad_to_us(angle, servo_params.min_us, servo_params.max_us));
+            motors.push_back(servoNum);
+            pulses.push_back(rad_to_us(angle, servoParams.minUs, servoParams.maxUs));
         }
 
-        joint_message.points.push_back(trajectory_point);
+        jointMessage.points.push_back(trajectoryPoint);
 
-        _jointPublisher->publish(joint_message);
+        _jointPublisher->publish(jointMessage);
 
         message.motor = motors;
         message.pulses = pulses;
@@ -505,67 +497,49 @@ private:
         _publisher->publish(message);
     }
 
-    void resetServos(){
-        for(uint16_t servo_num = 0; servo_num < servo_map_.size(); servo_num++)
-        {
-            // Second motor in each group should be centered at pi/4 instead of 0
-            double angle = (servo_num - 1) % 4 == 0 ? M_PI_2 / 2.0 : 0.0;
-
-            auto servo = servo_map_.find(servo_names[servo_num]);
-            const auto& servo_name = servo->second;
-
-            update_servo_positions(std::vector<std::string>{servo_name}, std::vector<double>{angle});
-
-            rclcpp::sleep_for(std::chrono::milliseconds(250));
-        }
-
-    }
-
-    void moveServos(const interfaces::msg::MotorTesting &msg){
+    void move_servos(const interfaces::msg::MotorTesting &msg){
         update_servo_positions(msg.motors, msg.angles);   
     }
 
-    void updateBalanceCorrection(const interfaces::msg::BalanceCorrection &msg){
-        gait_control.set_roll_correction(msg.roll_correction);
-        gait_control.set_pitch_correction(msg.pitch_correction);
+    void update_balance_correction(const interfaces::msg::BalanceCorrection &msg){
+        gaitControl.set_roll_correction(msg.roll_correction);
+        gaitControl.set_pitch_correction(msg.pitch_correction);
     }
 
-    void inputHandler(const sensor_msgs::msg::Joy &msg){
+    void input_handler(const sensor_msgs::msg::Joy &msg){
 
         // Set the frequency and turn scale based on the appropriate joystick axis
-        gait_control.set_frequency_scale(std::abs(msg.axes[1]));
-        gait_control.set_turn_scale(msg.axes[3]);
+        gaitControl.set_frequency_scale(std::abs(msg.axes[1]));
+        gaitControl.set_turn_scale(msg.axes[3]);
 
         // get the primary and transition gaits
-        gait* activePrimaryGait = gait_control.get_primary_gait();
-        gait* activeTransitionGait = gait_control.get_transition_gait(); 
+        gait* activePrimaryGait = gaitControl.get_primary_gait();
+        gait* activeTransitionGait = gaitControl.get_transition_gait(); 
 
         // Handle Transitions
         if(msg.axes[1] > 0.2 && msg.axes[1] < 0.5) {
             if(activePrimaryGait == &idle && activeTransitionGait != &forwardWalk)
             {
-                gait_control.queue_gait(&forwardWalk);
+                gaitControl.queue_gait(&forwardWalk);
             }
         } 
         else if(msg.axes[1] > 0.5) {
             if(activePrimaryGait == &forwardWalk && activeTransitionGait != &forwardTrot)
             {
-                gait_control.queue_gait(&forwardTrot);
+                gaitControl.queue_gait(&forwardTrot);
             }
         }
         else if(msg.axes[1] < -0.2){
             if(activePrimaryGait == &idle && activeTransitionGait != &reverseWalk)
             {
-                gait_control.queue_gait(&reverseWalk);
+                gaitControl.queue_gait(&reverseWalk);
             }
         }
         else if(std::abs(msg.axes[1]) <= 0.2)
         {
-            
             if(activePrimaryGait != &idle && activePrimaryGait != &rest && activeTransitionGait != &idle)
             {
-                RCLCPP_INFO(this->get_logger(), "Primary gate != rest");
-                gait_control.queue_gait(&idle);
+                gaitControl.queue_gait(&idle);
             }    
         }
 
@@ -576,15 +550,15 @@ private:
             interfaces::msg::MotorPosition msg;
             _resetBalancePublisher->publish(msg);
 
-            gait_control.enableBalanceOffsets = !gait_control.enableBalanceOffsets;
+            gaitControl.enableBalanceOffsets = !gaitControl.enableBalanceOffsets;
         }
         else if(msg.buttons[0] == 0 && !buttonReset[0]){
             buttonReset[0] = true;
         }
 
         if(msg.buttons[1] == 1 && buttonReset[1]){
-            if(activePrimaryGait == &rest) gait_control.queue_gait(&idle);
-            else if(activePrimaryGait == &idle) gait_control.queue_gait(&rest);
+            if(activePrimaryGait == &rest) gaitControl.queue_gait(&idle);
+            else if(activePrimaryGait == &idle) gaitControl.queue_gait(&rest);
             buttonReset[1] = false;
         }
         else if(msg.buttons[1] == 0 && !buttonReset[1]){
@@ -593,13 +567,13 @@ private:
         
     }
 
-    double rad_to_us(double rad, double min_us, double max_us) const {
+    double rad_to_us(double rad, double minUs, double maxUs) const {
         
         // Convert radians to pulse length in microseconds
         double t = (rad + (M_PI_2 - 0.174533)) / (M_PI - 0.349066);
         if(t < 0.0) t = 0.0;
         if(t > 1.0) t = 1.0;
-        return min_us + t * (max_us - min_us);
+        return minUs + t * (maxUs - minUs);
     }
 };
 

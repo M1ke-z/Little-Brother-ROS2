@@ -16,25 +16,25 @@
 #include <chrono>
 
 struct imu {
-    int64_t gyro_x_total = 0;
-    int64_t gyro_y_total = 0;
-    int64_t gyro_z_total = 0;
+    int64_t gyroXTotal = 0;
+    int64_t gyroYTotal = 0;
+    int64_t gyroZTotal = 0;
 
-    int64_t accel_x_total = 0;
-    int64_t accel_y_total = 0;
-    int64_t accel_z_total = 0;
+    int64_t accelXTotal = 0;
+    int64_t accelYTotal = 0;
+    int64_t accelZTotal = 0;
 
     // The offset registers use a different scale than the readout so it needs to be converted
-    const double gyro_offset_factor =  0.25; 
-    const double accel_offset_factor = 0.125; 
+    const double gyroOffsetFactor =  0.25; 
+    const double accelOffsetFactor = 0.125; 
 
     // The offset used to convert LSB to phyiscal values
-    const double accel_conversion_factor = 4.0 / std::pow(2, 16); // g/lsb
-    const double gyro_conversion_factor = (500.0 / std::pow(2, 16)) * (M_PI/180.0); // rad/(lsb*sec)
+    const double accelConversionFactor = 4.0 / std::pow(2, 16); // g/lsb
+    const double gyroConversionFactor = (500.0 / std::pow(2, 16)) * (M_PI/180.0); // rad/(lsb*sec)
 
-    const uint16_t target_calibration_samples = 1000;
+    const uint16_t targetCalibrationSamples = 1000;
 
-    int16_t calibration_samples = 0;
+    int16_t calibrationSamples = 0;
 };
 
 class balance : public rclcpp::Node {
@@ -47,9 +47,9 @@ public:
 
         start_gy521();
 
-        is_calibrating = true;
+        isCalibrating = true;
 
-        previous_time = this->get_clock()->now();
+        previousTime = this->get_clock()->now();
 
         _subIMU = this->create_subscription<sensor_msgs::msg::Imu>(
             "/imu", rclcpp::QoS(10),
@@ -70,16 +70,16 @@ public:
         _subResetBalance = this->create_subscription<interfaces::msg::MotorPosition>(
             "/balance/reset_balance", rclcpp::QoS(10),
             [this](interfaces::msg::MotorPosition msg){
-                this->correction_roll = 0.0;
-                this->correction_pitch = 0.0;
+                this->correctionRoll = 0.0;
+                this->correctionPitch = 0.0;
             }
         );
 
         timer_ = this->create_wall_timer(
             std::chrono::duration<double>(1.0 / 400.0),
             [this]() {
-                if(is_calibrating) run_calibration_cycle();
-                else runPID(); 
+                if(isCalibrating) run_calibration_cycle();
+                else run_PID(); 
             }
         );
 
@@ -98,18 +98,18 @@ public:
 
         rclcpp::Publisher<interfaces::msg::BalanceCorrection>::SharedPtr _balanceCorrectionPublisher;
         
-        rclcpp::Time previous_time;
+        rclcpp::Time previousTime;
 
-        double current_roll;
-        double current_pitch;
+        double currentRoll;
+        double currentPitch;
 
-        double current_roll_velocity;
-        double current_pitch_velocity;
+        double currentRollVelocity;
+        double currentPitchVelocity;
 
-        double correction_roll;
-        double correction_pitch;
+        double correctionRoll;
+        double correctionPitch;
 
-        const double gyro_accel_ratio = 0.95;
+        const double gyroAccelRatio = 0.95;
 
         double proportional_constant = 0.8;
         double derivative_constant = 0.15;
@@ -120,7 +120,7 @@ public:
 
         int fd_{-1};
 
-        bool is_calibrating = false;
+        bool isCalibrating = false;
 
         struct imu gy521;
 
@@ -148,99 +148,86 @@ public:
 
         }
 
-        void handle_imu_update(const sensor_msgs::msg::Imu& imu_data) {
-            // RCLCPP_INFO(this->get_logger(), "Angular Veclocity - X: %.2f Y: %.2f Z: %.2f", imu_data.angular_velocity.x, imu_data.angular_velocity.y, imu_data.angular_velocity.z);
-            // RCLCPP_INFO(this->get_logger(), "Linear Acceleration - X: %.2f Y: %.2f Z: %.2f", imu_data.linear_acceleration.x, imu_data.linear_acceleration.y, imu_data.linear_acceleration.z);
+        void handle_imu_update(const sensor_msgs::msg::Imu& imuData) {
+            rclcpp::Time currentTime = this->get_clock()->now();
 
-            rclcpp::Time current_time = this->get_clock()->now();
+            double dt = (currentTime - previousTime).seconds();
+            previousTime = currentTime;
 
-            double dt = (current_time - previous_time).seconds();
-            previous_time = current_time;
-
-            double accel_roll = std::atan2(
-                imu_data.linear_acceleration.y, 
-                std::sqrt(std::pow(imu_data.linear_acceleration.z, 2) + std::pow(imu_data.linear_acceleration.x, 2))
+            double accelRoll = std::atan2(
+                imuData.linear_acceleration.y, 
+                std::sqrt(std::pow(imuData.linear_acceleration.z, 2) + std::pow(imuData.linear_acceleration.x, 2))
             );
-            double accel_pitch = std::atan2(
-                imu_data.linear_acceleration.x, 
-                std::sqrt(std::pow(imu_data.linear_acceleration.z, 2) + std::pow(imu_data.linear_acceleration.y, 2))
+            double accelPitch = std::atan2(
+                imuData.linear_acceleration.x, 
+                std::sqrt(std::pow(imuData.linear_acceleration.z, 2) + std::pow(imuData.linear_acceleration.y, 2))
             );
 
-            double gyro_roll = imu_data.angular_velocity.x * dt;
-            double gyro_pitch = imu_data.angular_velocity.y * dt;
+            double gyroRoll = imuData.angular_velocity.x * dt;
+            double gyroPitch = imuData.angular_velocity.y * dt;
 
-            current_roll_velocity = imu_data.angular_velocity.x;
-            current_pitch_velocity = imu_data.angular_velocity.y;
+            currentRollVelocity = imuData.angular_velocity.x;
+            currentPitchVelocity = imuData.angular_velocity.y;
 
-            current_roll = gyro_accel_ratio * (current_roll + gyro_roll) + (1 - gyro_accel_ratio) * accel_roll;
-            current_pitch = gyro_accel_ratio * (current_pitch + gyro_pitch) + (1 - gyro_accel_ratio) * accel_pitch;
+            currentRoll = gyroAccelRatio * (currentRoll + gyroRoll) + (1 - gyroAccelRatio) * accelRoll;
+            currentPitch = gyroAccelRatio * (currentPitch + gyroPitch) + (1 - gyroAccelRatio) * accelPitch;
 
-            //RCLCPP_INFO(this->get_logger(), "Roll: %.6f, %.6f, Pitch: %.6f, %.2f", gyro_roll, accel_roll, gyro_pitch, accel_pitch);
-            //RCLCPP_INFO(this->get_logger(), "Roll: %.6f, Pitch: %.6f", current_roll, current_pitch);
         }
 
-        void runPID() {
+        void run_PID() {
 
-            std::array<int16_t, 6> gy521_values;
+            std::array<int16_t, 6> gy521Values;
 
-            gy521_values = i2c_read_values();
+            gy521Values = i2c_read_values();
 
             // If the first three values are zero assume that the read failed.
-            if (gy521_values[0] == 0 && gy521_values[0] == 0 && gy521_values[0] == 0) return;
+            if (gy521Values[0] == 0 && gy521Values[0] == 0 && gy521Values[0] == 0) return;
 
-            // RCLCPP_INFO(this->get_logger(), "%d, %d, %d, %d, %d, %d", 
-            //     gy521_values[0], gy521_values[1], gy521_values[2], gy521_values[3], gy521_values[4], gy521_values[5]
-            // );
+            double gyroX = gy521Values[0] * gy521.gyroConversionFactor;
+            double gyroY = gy521Values[1] * gy521.gyroConversionFactor;
+            double gyroZ = gy521Values[2] * gy521.gyroConversionFactor;
 
-            double gyro_x = gy521_values[0] * gy521.gyro_conversion_factor;
-            double gyro_y = gy521_values[1] * gy521.gyro_conversion_factor;
-            double gyro_z = gy521_values[2] * gy521.gyro_conversion_factor;
+            double accelX = gy521Values[3] * gy521.accelConversionFactor;
+            double accelY = gy521Values[4] * gy521.accelConversionFactor;
+            double accelZ = gy521Values[5] * gy521.accelConversionFactor;
 
-            double accel_x = gy521_values[3] * gy521.accel_conversion_factor;
-            double accel_y = gy521_values[4] * gy521.accel_conversion_factor;
-            double accel_z = gy521_values[5] * gy521.accel_conversion_factor;
+            rclcpp::Time currentTime = this->get_clock()->now();
 
-            rclcpp::Time current_time = this->get_clock()->now();
+            double dt = (currentTime - previousTime).seconds();
+            previousTime = currentTime;
 
-            double dt = (current_time - previous_time).seconds();
-            previous_time = current_time;
-
-            double accel_roll = std::atan2(
-                accel_y, 
-                std::sqrt(std::pow(accel_z, 2) + std::pow(accel_x, 2))
+            double accelRoll = std::atan2(
+                accelY, 
+                std::sqrt(std::pow(accelZ, 2) + std::pow(accelX, 2))
             );
-            double accel_pitch = std::atan2(
-                accel_x, 
-                std::sqrt(std::pow(accel_z, 2) + std::pow(accel_y, 2))
+            double accelPitch = std::atan2(
+                accelX, 
+                std::sqrt(std::pow(accelZ, 2) + std::pow(accelY, 2))
             );
 
-            double gyro_roll = gyro_x * dt;
-            double gyro_pitch = gyro_y * dt;
+            double gyroRoll = gyroX * dt;
+            double gyroPitch = gyroY * dt;
 
-            current_roll_velocity = gyro_x;
-            current_pitch_velocity = gyro_y;
+            currentRollVelocity = gyroX;
+            currentPitchVelocity = gyroY;
 
-            current_roll = gyro_accel_ratio * (current_roll + gyro_roll) + (1 - gyro_accel_ratio) * accel_roll;
-            current_pitch = gyro_accel_ratio * (current_pitch + gyro_pitch) + (1 - gyro_accel_ratio) * accel_pitch;
-
-            // RCLCPP_INFO(this->get_logger(), "Current Roll: %.6f, Current Pitch: %.6f", 
-            //     current_roll, current_pitch
-            // );
+            currentRoll = gyroAccelRatio * (currentRoll + gyroRoll) + (1 - gyroAccelRatio) * accelRoll;
+            currentPitch = gyroAccelRatio * (currentPitch + gyroPitch) + (1 - gyroAccelRatio) * accelPitch;
 
             // This PID script runs assuming that the target pitch and roll is 0
-            double proportional_roll = current_roll * proportional_constant; 
-            double derivative_roll = current_roll_velocity * derivative_constant; 
+            double proportionalRoll = currentRoll * proportional_constant; 
+            double derivativeRoll = currentRollVelocity * derivative_constant; 
             
-            double proportional_pitch = current_pitch * proportional_constant; 
-            double derivative_pitch = current_pitch_velocity * derivative_constant; 
+            double proportionalPitch = currentPitch * proportional_constant; 
+            double derivativePitch = currentPitchVelocity * derivative_constant; 
 
-            correction_roll = std::clamp(correction_roll + proportional_roll + derivative_roll, -15.0, 15.0);
-            correction_pitch = std::clamp(correction_pitch + proportional_pitch + derivative_pitch, -15.0, 15.0);
+            correctionRoll = std::clamp(correctionRoll + proportionalRoll + derivativeRoll, -15.0, 15.0);
+            correctionPitch = std::clamp(correctionPitch + proportionalPitch + derivativePitch, -15.0, 15.0);
 
             interfaces::msg::BalanceCorrection msg;
 
-            msg.roll_correction = correction_roll;
-            msg.pitch_correction = correction_pitch;
+            msg.roll_correction = correctionRoll;
+            msg.pitch_correction = correctionPitch;
 
             _balanceCorrectionPublisher->publish(msg);
         }
@@ -252,105 +239,102 @@ public:
         void start_gy521(){
             uint8_t start_buf[2] = {POWER_MANAGEMENT, 0x00};
             uint8_t reset_buf[2] = {POWER_MANAGEMENT, 0x80};
-            //uint8_t low_pass_buf[2] = {CONFIG, 0x03};
 
             i2c_write(&reset_buf, 2);
 
             rclcpp::sleep_for(std::chrono::seconds(4));
 
             i2c_write(&start_buf, 2);
-
-            //i2c_write(&low_pass_buf, 2);
         }
 
         void run_calibration_cycle(){
             
-            std::array<int16_t, 6> gy521_data = i2c_read_values();
+            std::array<int16_t, 6> gy521Data = i2c_read_values();
 
-            gy521.gyro_x_total += gy521_data[0];
-            gy521.gyro_y_total += gy521_data[1];
-            gy521.gyro_z_total += gy521_data[2];
+            gy521.gyroXTotal += gy521Data[0];
+            gy521.gyroYTotal += gy521Data[1];
+            gy521.gyroZTotal += gy521Data[2];
 
-            gy521.accel_x_total += gy521_data[3];
-            gy521.accel_y_total += gy521_data[4];
-            gy521.accel_z_total += gy521_data[5];
+            gy521.accelXTotal += gy521Data[3];
+            gy521.accelYTotal += gy521Data[4];
+            gy521.accelZTotal += gy521Data[5];
 
-            gy521.calibration_samples += 1;
+            gy521.calibrationSamples += 1;
 
-            if(gy521.calibration_samples == gy521.target_calibration_samples)
+            if(gy521.calibrationSamples == gy521.targetCalibrationSamples)
             {
-                is_calibrating = false;
+                isCalibrating = false;
 
                 // Acceleration offset registers have a value by default so that needs to be included in the offset.
-                int16_t offset_accel_x_cur = i2c_read_register_16(0x06);
-                int16_t offset_accel_y_cur = i2c_read_register_16(0x08);
-                int16_t offset_accel_z_cur = i2c_read_register_16(0x0A);
+                int16_t offsetAccelXCur = i2c_read_register_16(0x06);
+                int16_t offsetAccelYCur = i2c_read_register_16(0x08);
+                int16_t offsetAccelZCur = i2c_read_register_16(0x0A);
 
-                int16_t offset_gyro_x = std::floor((gy521.gyro_x_total / gy521.target_calibration_samples) * gy521.gyro_offset_factor) * -1; 
-                int16_t offset_gyro_y = std::floor((gy521.gyro_y_total / gy521.target_calibration_samples) * gy521.gyro_offset_factor) * -1; 
-                int16_t offset_gyro_z = std::floor((gy521.gyro_z_total / gy521.target_calibration_samples) * gy521.gyro_offset_factor) * -1; 
+                int16_t offsetGyroX = std::floor((gy521.gyroXTotal / gy521.targetCalibrationSamples) * gy521.gyroOffsetFactor) * -1; 
+                int16_t offsetGyroY = std::floor((gy521.gyroYTotal / gy521.targetCalibrationSamples) * gy521.gyroOffsetFactor) * -1; 
+                int16_t offsetGyroZ = std::floor((gy521.gyroZTotal / gy521.targetCalibrationSamples) * gy521.gyroOffsetFactor) * -1; 
 
-                int16_t offset_accel_x = std::floor((gy521.accel_x_total / gy521.target_calibration_samples) * gy521.accel_offset_factor) * -1 + offset_accel_x_cur; 
-                int16_t offset_accel_y = std::floor((gy521.accel_y_total / gy521.target_calibration_samples) * gy521.accel_offset_factor) * -1 + offset_accel_y_cur; 
-                int16_t offset_accel_z = std::floor((-16384 - gy521.accel_z_total / gy521.target_calibration_samples) * gy521.accel_offset_factor) + offset_accel_z_cur; 
+                int16_t offsetAccelX = std::floor((gy521.accelXTotal / gy521.targetCalibrationSamples) * gy521.accelOffsetFactor) * -1 + offsetAccelXCur; 
+                int16_t offsetAccelY = std::floor((gy521.accelYTotal / gy521.targetCalibrationSamples) * gy521.accelOffsetFactor) * -1 + offsetAccelYCur; 
+                int16_t offsetAccelZ = std::floor((-16384 - gy521.accelZTotal / gy521.targetCalibrationSamples) * gy521.accelOffsetFactor) + offsetAccelZCur; 
 
                 // Bit 0 of the acceleration registers is used for temperature control and should not be changed.
-                offset_accel_x = (offset_accel_x & ~1) | (1 & offset_accel_x_cur);
-                offset_accel_y = (offset_accel_y & ~1) | (1 & offset_accel_y_cur);
-                offset_accel_z = (offset_accel_z & ~1) | (1 & offset_accel_z_cur);
+                offsetAccelX = (offsetAccelX & ~1) | (1 & offsetAccelXCur);
+                offsetAccelY = (offsetAccelY & ~1) | (1 & offsetAccelYCur);
+                offsetAccelZ = (offsetAccelZ & ~1) | (1 & offsetAccelZCur);
 
-                std::array<uint8_t, 7> accel_offsets = {
+                std::array<uint8_t, 7> accelOffsets = {
                     0x06, 
-                    static_cast<uint8_t>(offset_accel_x >> 8), static_cast<uint8_t>(offset_accel_x & 0x00FF), 
-                    static_cast<uint8_t>(offset_accel_y >> 8), static_cast<uint8_t>(offset_accel_y & 0x00FF),
-                    static_cast<uint8_t>(offset_accel_z >> 8), static_cast<uint8_t>(offset_accel_z & 0x00FF)
+                    static_cast<uint8_t>(offsetAccelX >> 8), static_cast<uint8_t>(offsetAccelX & 0x00FF), 
+                    static_cast<uint8_t>(offsetAccelY >> 8), static_cast<uint8_t>(offsetAccelY & 0x00FF),
+                    static_cast<uint8_t>(offsetAccelZ >> 8), static_cast<uint8_t>(offsetAccelZ & 0x00FF)
                 };
 
-                std::array<uint8_t, 7> gyro_offsets = {
+                std::array<uint8_t, 7> gyroOffsets = {
                     0x13, 
-                    static_cast<uint8_t>(offset_gyro_x >> 8), static_cast<uint8_t>(offset_gyro_x & 0x00FF), 
-                    static_cast<uint8_t>(offset_gyro_y >> 8), static_cast<uint8_t>(offset_gyro_y & 0x00FF),
-                    static_cast<uint8_t>(offset_gyro_z >> 8), static_cast<uint8_t>(offset_gyro_z & 0x00FF)
+                    static_cast<uint8_t>(offsetGyroX >> 8), static_cast<uint8_t>(offsetGyroX & 0x00FF), 
+                    static_cast<uint8_t>(offsetGyroY >> 8), static_cast<uint8_t>(offsetGyroY & 0x00FF),
+                    static_cast<uint8_t>(offsetGyroZ >> 8), static_cast<uint8_t>(offsetGyroZ & 0x00FF)
                 };
 
-                i2c_write(&accel_offsets, 7);
+                i2c_write(&accelOffsets, 7);
 
-                i2c_write(&gyro_offsets, 7);
+                i2c_write(&gyroOffsets, 7);
             }
         }
 
         std::array<int16_t, 6> i2c_read_values() {
-            std::array<uint8_t, 12> register_data;
+            std::array<uint8_t, 12> registerData;
 
-            uint8_t gyro_start_addr = GYRO_START;
-            uint8_t accel_start_addr = ACCEL_START;
+            uint8_t gyroStartAddr = GYRO_START;
+            uint8_t accelStartAddr = ACCEL_START;
 
-            std::array<int16_t, 6> return_data = {0, 0, 0, 0, 0, 0};
+            std::array<int16_t, 6> returnData = {0, 0, 0, 0, 0, 0};
 
 
-            if (write(fd_, &gyro_start_addr, 1) != 1) return return_data; 
-            if (read(fd_, &register_data, 6) != 6) return return_data; 
+            if (write(fd_, &gyroStartAddr, 1) != 1) return returnData; 
+            if (read(fd_, &registerData, 6) != 6) return returnData; 
 
-            if (write(fd_, &accel_start_addr, 1) != 1) return return_data; 
-            if (read(fd_, &register_data[0] + 6, 6) != 6) return return_data; 
+            if (write(fd_, &accelStartAddr, 1) != 1) return returnData; 
+            if (read(fd_, &registerData[0] + 6, 6) != 6) return returnData; 
 
             
 
-            for(uint16_t index = 0; index < register_data.size(); index += 2)
+            for(uint16_t index = 0; index < registerData.size(); index += 2)
             {
-                return_data[index/2] = (register_data[index] << 8 | register_data[index + 1]);
+                returnData[index/2] = (registerData[index] << 8 | registerData[index + 1]);
             }
 
-            return return_data;
+            return returnData;
         }
 
         int16_t i2c_read_register_16(uint8_t addr){
-            std::array<uint8_t, 2> register_data;
+            std::array<uint8_t, 2> registerData;
 
             if(write(fd_, &addr, 1) != 1) throw std::runtime_error("I2C reg select failed"); 
-            if(read(fd_, &register_data, 2) != 2) throw std::runtime_error("I2C read failed");
+            if(read(fd_, &registerData, 2) != 2) throw std::runtime_error("I2C read failed");
 
-            return register_data[0] << 8 | register_data[1];
+            return registerData[0] << 8 | registerData[1];
         }
 };
 
