@@ -7,7 +7,6 @@ import os
 
 def generate_launch_description():
 
-    # Commented out for testing
     node_a = Node(
         package="pca9685_driver",
         executable="pca9685_node",   # must match what you install/build
@@ -47,7 +46,5 @@ def generate_launch_description():
         name="node_d",
         output="screen"
     )
-
-    # , 
 
     return LaunchDescription([node_a, node_b, node_c, node_d])
