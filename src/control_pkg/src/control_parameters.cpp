@@ -3,6 +3,16 @@
 
 void declare_motor_parameters(rclcpp::Node& node)
 {
+    /* ------
+        Purpose:
+            Declares all of the motor parameters before they are accessed
+        Parameters:
+            rclcpp::Node& node - The node that the parameters should be declared in
+        Return 
+            None
+        ------ */ 
+
+    // For each motor define the basic properties associated with it
     for(uint8_t i = 0; i < NUM_MOTORS; i++)
     {
         node.declare_parameter<double>("motor" + std::to_string(i) + ".maxAngle", M_PI_2);
@@ -16,7 +26,19 @@ void declare_motor_parameters(rclcpp::Node& node)
 }
 
 std::array<MotorData, NUM_MOTORS> get_motor_parameters(rclcpp::Node& node) {
+    /* ------
+        Purpose:
+            After the motor parameters have been declared this function can be called to return an array of the values for 
+            each motor
+        Parameters:
+            rclcpp::Node& node - The node that the parameters belong to 
+        Return 
+            std::array<MotorData, NUM_MOTORS> - An array with all of the motor values
+        ------ */ 
+
     std::array<MotorData, NUM_MOTORS> motorData;
+
+    // Get the motor data for each motor
     for(uint8_t i = 0; i < NUM_MOTORS; i++)
     {
         node.get_parameter("motor" + std::to_string(i) + ".maxAngle", motorData[i].maxAngle);
@@ -69,6 +91,18 @@ std::vector<double> gait::get_center_point() const { return curveCenterPoint; }
 
 
 gait get_gait_params(rclcpp::Node& node, std::string gaitName) {
+    /* ------
+        Purpose:
+            This function will return the gait params for a requested gait. 
+            This needs to be done on a per gait basis since there is not a fixed number of gaits
+        Parameters:
+            rclcpp::Node& node - The node that the parameters belong to 
+            std::string gaitName - The name of the gait that we want the parameters for
+        Return 
+            gait - A gait object containing all of the parameters for a requested gait
+        ------ */ 
+
+    // Declare variables to temporarly hold all of the gate parameters
     std::vector<int64_t> phaseOffsets;
     double minFrequency;
     double maxFrequency;
@@ -80,6 +114,7 @@ gait get_gait_params(rclcpp::Node& node, std::string gaitName) {
     double swingSwitchPhase;
     std::vector<double> centerPoint;
 
+    // Declare the parameters within the node provided
     node.declare_parameter<std::vector<int64_t>>(gaitName + ".phaseOffsets");
     node.declare_parameter<double>(gaitName + ".minFrequency");
     node.declare_parameter<double>(gaitName + ".maxFrequency");
@@ -89,6 +124,7 @@ gait get_gait_params(rclcpp::Node& node, std::string gaitName) {
     node.declare_parameter<double>(gaitName + ".swingSwitchPhase");
     node.declare_parameter<std::vector<double>>(gaitName + ".centerPoint");
 
+    // Get the parameters and store them in the designated variable
     node.get_parameter(gaitName + ".phaseOffsets", phaseOffsets);
     node.get_parameter(gaitName + ".minFrequency", minFrequency);
     node.get_parameter(gaitName + ".maxFrequency", maxFrequency);
@@ -98,6 +134,8 @@ gait get_gait_params(rclcpp::Node& node, std::string gaitName) {
     node.get_parameter(gaitName + ".swingSwitchPhase", swingSwitchPhase);
     node.get_parameter(gaitName + ".centerPoint", centerPoint);
 
+    // Both of these for loops convert the flat array of control points into a 2D array.
+    // This is required since ROS2 does not allow you to store multi-dimensional arrays as a parameter file
     for(size_t index = 0; index < flatStanceControlPoints.size(); index+=3){
         stanceControlPoints.push_back(std::vector<double> {
             flatStanceControlPoints[index], 
@@ -114,6 +152,7 @@ gait get_gait_params(rclcpp::Node& node, std::string gaitName) {
         });
     } 
 
+    // Generate the gait and return it
     gait returnGait(
         phaseOffsets,
         minFrequency,
